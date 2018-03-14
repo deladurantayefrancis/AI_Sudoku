@@ -45,6 +45,27 @@ def test():
                                'A1', 'A3', 'B1', 'B3'])
     print 'All tests pass.'
 
+def hill_climbing(grid):
+    values = parse_grid(grid)
+    hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
+    hc_squares = [s for s in squares if len(values[s]) > 1]  # the empty squares
+
+    ## For each square in a unit of hc_units, assign a digit not already in this unit.
+    for u in hc_units:
+        ds = set(digits) - set(values[s] for s in u)
+        for s in u:
+            if len(values[s]) > 1:
+                values[s] = ds.pop()
+
+    conflicts = hc_conflicts(values)
+
+
+
+def hc_conflicts(values):
+    """Return a list of squares causing conflict."""
+    return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
+
+
 ################ Parse a Grid ################
 
 def parse_grid(grid):
