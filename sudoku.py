@@ -48,6 +48,10 @@ def test():
                                'A1', 'A3', 'B1', 'B3'])
     print 'All tests pass.'
 
+
+
+############################ Hill Climbing ###################################################
+
 def hill_climbing(values):
     print "start hc"
     hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
@@ -108,12 +112,65 @@ def hill_climbing(values):
         return False
 
 
-
-
 def hc_conflicts(values):
     """Return a list of squares causing conflict."""
     return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
 
+############################### Simulated Annealing ###################################################
+
+def simulated_annealing(values): #right now its a copy of hill climbing
+    print "start hc"
+    hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
+    hc_squares = [s for s in squares if len(values[s]) > 1]  # empty squares
+
+    global attempt_cnt
+    attempt_cnt = 0
+
+    ## For each square in a unit of hc_units, assign a digit not already in this unit.
+    for u in hc_units:
+        ds = set(digits) - set(values[s] for s in u)
+        for s in u:
+            if len(values[s]) > 1:
+                values[s] = ds.pop()
+                attempt_cnt += 1
+
+    same_best_cnt = 0
+    while same_best_cnt < 30:
+        initial_best = len(hc_conflicts(values))
+        best = initial_best
+        prospect = set()
+
+        for u in hc_units:
+            for s in u:
+                for s2 in u:
+                    if s != s2 and s in hc_squares and s2 in hc_squares:
+                        new_values = copy.deepcopy(values)
+                        new_values[s], new_values[s2] = new_values[s2], new_values[s]
+                        conflicts = hc_conflicts(new_values)
+
+                        if len(conflicts) < best:
+                            prospect = set()
+                            prospect.add((s, s2))
+                            best = len(conflicts)
+                            print "new best is " + str(best)
+                        elif len(conflicts) == best:
+                            prospect.add((s, s2))
+
+        if best == initial_best:
+            same_best_cnt += 1
+        else:
+            same_best_cnt = 0
+
+        print "same best cnt " + str(same_best_cnt)
+
+        # ensuite swapper des digit qui reduise le plus de conflit
+        if len(prospect) > 0:
+            print "swapping for better"
+            s, s2 = prospect.pop()
+            values[s], values[s2] = values[s2], values[s]
+            attempt_cnt += 1
+        else:
+            break
 
 ################ Parse a Grid ################
 
