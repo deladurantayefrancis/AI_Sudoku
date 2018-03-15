@@ -60,9 +60,7 @@ def hill_climbing(grid):
                 values[s] = ds.pop()
 
     conflicts = hc_conflicts(values)
-<<<<<<< HEAD
     # choisr le digit a placer qui provoque le moins de conflit
-=======
     best = len(conflicts)
     prospect = set()
 
@@ -79,10 +77,6 @@ def hill_climbing(grid):
                     elif len(new_conflicts) == best:
                         prospect.add((c, s))
 
-
-
-
->>>>>>> 7f66952c5e6c97a0be479a4a831079207359a8a2
 
     # ensuite swapper des diggit qui reduise le plus de conflit
 
