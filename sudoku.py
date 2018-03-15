@@ -60,7 +60,9 @@ def hill_climbing(grid):
                 values[s] = ds.pop()
 
     conflicts = hc_conflicts(values)
+    # choisr le digit a placer qui provoque le moins de conflit
 
+    # ensuite swapper des diggit qui reduise le plus de conflit
 
 
 def hc_conflicts(values):
