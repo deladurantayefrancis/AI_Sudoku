@@ -12,6 +12,7 @@
 ##   values is a dict of possible values, e.g. {'A1':'12349', 'A2':'8', ...}
 
 import sys
+import copy
 
 attempt_cnt = 0  # computeur du nombre de tentatives
 
@@ -47,10 +48,13 @@ def test():
                                'A1', 'A3', 'B1', 'B3'])
     print 'All tests pass.'
 
-def hill_climbing(grid):
-    values = parse_grid(grid)
+def hill_climbing(values):
+    print "start hc"
     hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
-    initial_squares = [s for s in squares if len(values[s]) == 1]  # initial non-empty squares
+    hc_squares = [s for s in squares if len(values[s]) > 1]  # empty squares
+
+    global attempt_cnt
+    attempt_cnt = 0
 
     ## For each square in a unit of hc_units, assign a digit not already in this unit.
     for u in hc_units:
@@ -58,27 +62,50 @@ def hill_climbing(grid):
         for s in u:
             if len(values[s]) > 1:
                 values[s] = ds.pop()
+                attempt_cnt += 1
 
-    conflicts = hc_conflicts(values)
-    # choisr le digit a placer qui provoque le moins de conflit
-    best = len(conflicts)
-    prospect = set()
+    same_best_cnt = 0
+    while same_best_cnt < 30:
+        initial_best = len(hc_conflicts(values))
+        best = initial_best
+        prospect = set()
 
-    for c, u in conflicts, hc_units:
-        if c in u:
+        for u in hc_units:
             for s in u:
-                if s not in initial_squares and s != c:
-                    new_values = values
-                    new_values[c], new_values[s] = new_values[s], new_values[c]  # swap digits in squares c and s
-                    new_conflicts = hc_conflicts(values)
-                    if len(new_conflicts) < best:
-                        best = len(new_conflicts)
-                        prospect = set((c, s))
-                    elif len(new_conflicts) == best:
-                        prospect.add((c, s))
+                for s2 in u:
+                    if s != s2 and s in hc_squares and s2 in hc_squares:
+                        new_values = copy.deepcopy(values)
+                        new_values[s], new_values[s2] = new_values[s2], new_values[s]
+                        conflicts = hc_conflicts(new_values)
 
+                        if len(conflicts) < best:
+                            prospect = set()
+                            prospect.add((s, s2))
+                            best = len(conflicts)
+                            print "new best is " + str(best)
+                        elif len(conflicts) == best:
+                            prospect.add((s, s2))
 
-    # ensuite swapper des diggit qui reduise le plus de conflit
+        if best == initial_best:
+            same_best_cnt += 1
+        else:
+            same_best_cnt = 0
+
+        print "same best cnt " + str(same_best_cnt)
+
+        # ensuite swapper des digit qui reduise le plus de conflit
+        if len(prospect) > 0:
+            print "swapping for better"
+            s, s2 = prospect.pop()
+            values[s], values[s2] = values[s2], values[s]
+            attempt_cnt += 1
+        else:
+            break
+
+    if all(len(values[s]) == 1 for s in squares):
+        return values ## Solved!
+    else:
+        return False
 
 
 
@@ -89,6 +116,15 @@ def hc_conflicts(values):
 
 
 ################ Parse a Grid ################
+
+def hc_parse_grid(grid):
+    values = dict((s, digits) for s in squares)
+    for s,d in grid_values(grid).items():
+        if d not in digits:
+            values[s] = digits
+        else:
+            values[s] = d
+    return values
 
 def parse_grid(grid):
     """Convert grid to a dict of possible values, {square: digits}, or
@@ -161,9 +197,9 @@ def solve(grid, method):
     if method == 'vanilla' :
         return search(parse_grid(grid))
     elif method == 'hill_climbing' :
-	return hcseach(parse_grid(grid))
-    elif method == 'recul' :
-	return rsearch(parse_grid(grid))
+        return hill_climbing(hc_parse_grid(grid))
+    elif method == 'recuit' :
+        return rsearch(hc_parse_grid(grid))
 
 def search(values):
     "Using depth-first search and propagation, try all possible values."
@@ -178,15 +214,18 @@ def search(values):
 
 ################ Utilities ################
 
+
 def some(seq):
     "Return some element of seq that is true."
     for e in seq:
         if e: return e
     return False
 
+
 def from_file(filename, sep='\n'):
     "Parse a file into a list of strings, separated by sep."
     return file(filename).read().strip().split(sep)
+
 
 def shuffled(seq):
     "Return a randomly shuffled copy of the input sequence."
@@ -196,7 +235,9 @@ def shuffled(seq):
 
 ################ System test ################
 
+
 import time, random
+
 
 def solve_all(grids, method, name='', showif=0.0):
     """Attempt to solve a sequence of grids. Report results.
@@ -246,12 +287,14 @@ hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6.......
 if __name__ == '__main__':
     test()
     assert len(sys.argv) != 1
-    global solve_function
-    solve_all(from_file("easy50.txt", '========'),sys.argv[1], "easy", None)
+    solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
     solve_all(from_file("top95.txt"), sys.argv[1], "hard", None)
     solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
     solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
     # solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
+
+
+
 
 ## References used:
 ## http://www.scanraid.com/BasicStrategies.htm
