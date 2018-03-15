@@ -65,9 +65,9 @@ def hill_climbing(grid):
 
     for c, u in conflicts, hc_units:
         if c in u:
-            new_values = values
             for s in u:
                 if s not in initial_squares and s != c:
+                    new_values = values
                     new_values[c], new_values[s] = new_values[s], new_values[c]  # swap digits in squares c and s
                     new_conflicts = hc_conflicts(values)
                     if len(new_conflicts) < best:
@@ -75,6 +75,8 @@ def hill_climbing(grid):
                         prospect = set((c, s))
                     elif len(new_conflicts) == best:
                         prospect.add((c, s))
+
+
 
 
 
