@@ -50,7 +50,7 @@ def test():
 def hill_climbing(grid):
     values = parse_grid(grid)
     hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
-    hc_squares = [s for s in squares if len(values[s]) > 1]  # the empty squares
+    initial_squares = [s for s in squares if len(values[s]) == 1]  # initial non-empty squares
 
     ## For each square in a unit of hc_units, assign a digit not already in this unit.
     for u in hc_units:
@@ -60,7 +60,29 @@ def hill_climbing(grid):
                 values[s] = ds.pop()
 
     conflicts = hc_conflicts(values)
+<<<<<<< HEAD
     # choisr le digit a placer qui provoque le moins de conflit
+=======
+    best = len(conflicts)
+    prospect = set()
+
+    for c, u in conflicts, hc_units:
+        if c in u:
+            new_values = values
+            for s in u:
+                if s not in initial_squares and s != c:
+                    new_values[c], new_values[s] = new_values[s], new_values[c]  # swap digits in squares c and s
+                    new_conflicts = hc_conflicts(values)
+                    if len(new_conflicts) < best:
+                        best = len(new_conflicts)
+                        prospect = set((c, s))
+                    elif len(new_conflicts) == best:
+                        prospect.add((c, s))
+
+
+
+
+>>>>>>> 7f66952c5e6c97a0be479a4a831079207359a8a2
 
     # ensuite swapper des diggit qui reduise le plus de conflit
 
