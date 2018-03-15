@@ -13,6 +13,7 @@
 
 import sys
 import copy
+import random as rand
 
 attempt_cnt = 0  # computeur du nombre de tentatives
 
@@ -53,7 +54,6 @@ def test():
 ############################ Hill Climbing ###################################################
 
 def hill_climbing(values):
-    print "start hc"
     hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
     hc_squares = [s for s in squares if len(values[s]) > 1]  # empty squares
 
@@ -69,12 +69,13 @@ def hill_climbing(values):
                 attempt_cnt += 1
 
     same_best_cnt = 0
-    while same_best_cnt < 30:
-        initial_best = len(hc_conflicts(values))
-        best = initial_best
-        prospect = set()
-
+    while same_best_cnt < 9:
+        same_best_cnt = 0
         for u in hc_units:
+            initial_best = len(hc_conflicts(values))
+            best = initial_best
+            prospect = set()
+
             for s in u:
                 for s2 in u:
                     if s != s2 and s in hc_squares and s2 in hc_squares:
@@ -86,30 +87,29 @@ def hill_climbing(values):
                             prospect = set()
                             prospect.add((s, s2))
                             best = len(conflicts)
-                            print "new best is " + str(best)
+                            print "best: " + str(best)
                         elif len(conflicts) == best:
                             prospect.add((s, s2))
 
-        if best == initial_best:
-            same_best_cnt += 1
-        else:
-            same_best_cnt = 0
+            if best == initial_best:
+                same_best_cnt += 1
+            else:
+                same_best_cnt = 0
 
-        print "same best cnt " + str(same_best_cnt)
+            # ensuite swapper des digit qui reduise le plus de conflit
+            if len(prospect) > 0:
+                s, s2 = prospect.pop()
+                values[s], values[s2] = values[s2], values[s]
+                attempt_cnt += 1
 
-        # ensuite swapper des digit qui reduise le plus de conflit
-        if len(prospect) > 0:
-            print "swapping for better"
-            s, s2 = prospect.pop()
-            values[s], values[s2] = values[s2], values[s]
-            attempt_cnt += 1
-        else:
-            break
+            if best == 0:
+                print "win!!!!!!!!!!!!!!!"
+                return values  ## Solved!
 
-    if all(len(values[s]) == 1 for s in squares):
-        return values ## Solved!
-    else:
-        return False
+    print "----------- fail: " + str(best)
+    return False
+
+
 
 
 def hc_conflicts(values):
@@ -152,7 +152,6 @@ def simulated_annealing(values): #right now its a copy of hill climbing
                             prospect = set()
                             prospect.add((s, s2))
                             best = len(conflicts)
-                            print "new best is " + str(best)
                         elif len(conflicts) == best:
                             prospect.add((s, s2))
 
@@ -237,6 +236,7 @@ def eliminate(values, s, d):
     return values
 
 ################ Display as 2-D grid ################
+
 
 def display(values):
     "Display these values as a 2-D grid."
