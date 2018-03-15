@@ -11,6 +11,8 @@
 ##   grid is a grid,e.g. 81 non-blank chars, e.g. starting with '.18...7...
 ##   values is a dict of possible values, e.g. {'A1':'12349', 'A2':'8', ...}
 
+import sys
+
 attempt_cnt = 0  # computeur du nombre de tentatives
 
 def cross(A, B):
@@ -135,7 +137,13 @@ def display(values):
 
 ################ Search ################
 
-def solve(grid): return search(parse_grid(grid))
+def solve(grid, method): 
+    if method == 'vanilla' :
+        return search(parse_grid(grid))
+    elif method == 'hill_climbing' :
+	return hcseach(parse_grid(grid))
+    elif method == 'recul' :
+	return rsearch(parse_grid(grid))
 
 def search(values):
     "Using depth-first search and propagation, try all possible values."
@@ -170,7 +178,7 @@ def shuffled(seq):
 
 import time, random
 
-def solve_all(grids, name='', showif=0.0):
+def solve_all(grids, method, name='', showif=0.0):
     """Attempt to solve a sequence of grids. Report results.
     When showif is a number of seconds, display puzzles that take longer.
     When showif is None, don't display any puzzles."""
@@ -178,7 +186,7 @@ def solve_all(grids, name='', showif=0.0):
         global attempt_cnt
         start = time.clock()
         attempt_cnt = 0
-        values = solve(grid)
+        values = solve(grid, method)
         print attempt_cnt
         t = time.clock()-start
         ## Display puzzles that take long enough
@@ -217,11 +225,13 @@ hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6.......
     
 if __name__ == '__main__':
     test()
-    solve_all(from_file("easy50.txt", '========'), "easy", None)
-    solve_all(from_file("top95.txt"), "hard", None)
-    # solve_all(from_file("1000sudoku.txt"), "hard", None)
-    solve_all(from_file("hardest.txt"), "hardest", None)
-    solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
+    assert len(sys.argv) != 1
+    global solve_function
+    solve_all(from_file("easy50.txt", '========'),sys.argv[1], "easy", None)
+    solve_all(from_file("top95.txt"), sys.argv[1], "hard", None)
+    solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
+    solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
+    # solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
 
 ## References used:
 ## http://www.scanraid.com/BasicStrategies.htm
