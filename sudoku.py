@@ -68,10 +68,14 @@ def hill_climbing(values):
                 values[s] = ds.pop()
                 attempt_cnt += 1
 
-    same_best_cnt = 0
-    while same_best_cnt < 9:
-        same_best_cnt = 0
-        for u in hc_units:
+    progress = True
+    unit_indexes = range(9)
+
+    while progress:
+        rand.shuffle(unit_indexes)
+        progress = False
+        for i in unit_indexes:
+            u = hc_units[i]
             initial_best = len(hc_conflicts(values))
             best = initial_best
             prospect = set()
@@ -87,14 +91,9 @@ def hill_climbing(values):
                             prospect = set()
                             prospect.add((s, s2))
                             best = len(conflicts)
-                            print "best: " + str(best)
+                            # print "best: " + str(best)
                         elif len(conflicts) == best:
                             prospect.add((s, s2))
-
-            if best == initial_best:
-                same_best_cnt += 1
-            else:
-                same_best_cnt = 0
 
             # ensuite swapper des digit qui reduise le plus de conflit
             if len(prospect) > 0:
@@ -103,10 +102,12 @@ def hill_climbing(values):
                 attempt_cnt += 1
 
             if best == 0:
-                print "win!!!!!!!!!!!!!!!"
+                # print "win!!!!!!!!!!!!!!!"
                 return values  ## Solved!
+            elif best != initial_best:
+                progress = True
 
-    print "----------- fail: " + str(best)
+    # print "----------- fail: " + str(best)
     return False
 
 
@@ -346,7 +347,7 @@ if __name__ == '__main__':
     assert len(sys.argv) != 1
     solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
     solve_all(from_file("top95.txt"), sys.argv[1], "hard", None)
-    solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
+    # solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
     solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
     # solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
 
