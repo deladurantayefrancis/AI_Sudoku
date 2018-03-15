@@ -14,6 +14,7 @@
 import sys
 import copy
 import random as rand
+from math import exp
 
 attempt_cnt = 0  # computeur du nombre de tentatives
 
@@ -111,8 +112,6 @@ def hill_climbing(values):
     return False
 
 
-
-
 def hc_conflicts(values):
     """Return a list of squares causing conflict."""
     return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
@@ -120,7 +119,8 @@ def hc_conflicts(values):
 ############################### Simulated Annealing ###################################################
 
 def simulated_annealing(values): #right now its a copy of hill climbing
-    print "start hc"
+    
+    heat = 3.0
     hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
     hc_squares = [s for s in squares if len(values[s]) > 1]  # empty squares
 
@@ -135,42 +135,70 @@ def simulated_annealing(values): #right now its a copy of hill climbing
                 values[s] = ds.pop()
                 attempt_cnt += 1
 
-    same_best_cnt = 0
-    while same_best_cnt < 30:
-        initial_best = len(hc_conflicts(values))
-        best = initial_best
-        prospect = set()
+    progress = True
+    unit_indexes = range(9)
 
-        for u in hc_units:
+    while heat >=  0.001:
+        rand.shuffle(unit_indexes)
+        progress = False
+        for i in unit_indexes:
+            u = hc_units[i]
+            initial_best = len(sa_conflicts(values))
+            best = initial_best
+            prospect = set()
+
             for s in u:
                 for s2 in u:
                     if s != s2 and s in hc_squares and s2 in hc_squares:
                         new_values = copy.deepcopy(values)
                         new_values[s], new_values[s2] = new_values[s2], new_values[s]
-                        conflicts = hc_conflicts(new_values)
+                        conflicts = sa_conflicts(new_values)
 
                         if len(conflicts) < best:
                             prospect = set()
                             prospect.add((s, s2))
                             best = len(conflicts)
+                            # print "best: " + str(best)
                         elif len(conflicts) == best:
                             prospect.add((s, s2))
 
-        if best == initial_best:
-            same_best_cnt += 1
-        else:
-            same_best_cnt = 0
+            # ensuite swapper des digit qui reduise le plus de conflit
+            heat *= 0.99            
+            #choose a random pair to swap
+            p = u[rand.randint(0, 8)]
+            q = u[rand.randint(0, 8)]
+            while q == p :
+                q = u[rand.randint(0, 8)]
 
-        print "same best cnt " + str(same_best_cnt)
 
-        # ensuite swapper des digit qui reduise le plus de conflit
-        if len(prospect) > 0:
-            print "swapping for better"
-            s, s2 = prospect.pop()
-            values[s], values[s2] = values[s2], values[s]
-            attempt_cnt += 1
-        else:
-            break
+            h_values = copy.deepcopy(values)
+            h_values[p], h_values[q] = h_values[q], h_values[p]
+            
+            d = best - len(sa_conflicts(h_values))
+            
+            if d > 0 or exp(d/heat) > rand.uniform(0, 1):
+                values[p], values[q] = values[q], values[p]
+                attempt_cnt += 1
+                best -= d
+
+            elif len(prospect) > 0:
+                s, s2 = prospect.pop()
+                values[s], values[s2] = values[s2], values[s]
+                attempt_cnt += 1
+
+            if best == 0:
+                # print "win!!!!!!!!!!!!!!!"
+                return values  ## Solved!
+            elif best != initial_best:
+                progress = True
+
+    # print "----------- fail: " + str(best)
+    return False
+
+def sa_conflicts(values):
+    """Return a list of squares causing conflict."""
+    return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
+
 
 ################ Parse a Grid ################
 
@@ -257,7 +285,7 @@ def solve(grid, method):
     elif method == 'hill_climbing' :
         return hill_climbing(hc_parse_grid(grid))
     elif method == 'recuit' :
-        return rsearch(hc_parse_grid(grid))
+        return simulated_annealing(hc_parse_grid(grid))
 
 def search(values):
     "Using depth-first search and propagation, try all possible values."
