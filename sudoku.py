@@ -74,29 +74,29 @@ def hill_climbing(values):
     while progress:
         conflicts = get_conflicts(values)
         initial_best = len(conflicts)
+        best = initial_best
 
         rand.shuffle(square_units)
         progress = False
 
         for u in square_units:
-            best = initial_best
             prospect = set()
 
             for s1 in u:
                 for s2 in u:
                     if s1 != s2 and s1 in empty_squares and s2 in empty_squares:
                         new_values = copy.deepcopy(values)
-                        new_values[s], new_values[s2] = new_values[s2], new_values[s]
+                        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
                         attempt_cnt += 1
 
                         new_conflicts = get_conflicts(new_values)
                         if len(new_conflicts) < best:
                             prospect = set()
-                            prospect.add((s, s2))
+                            prospect.add((s1, s2))
                             best = len(new_conflicts)
                             # print "best: " + str(best)
                         elif len(new_conflicts) == best:
-                            prospect.add((s, s2))
+                            prospect.add((s1, s2))
 
             # if there are some prospects, swap the squares in a random prospect
             if len(prospect) > 0:
