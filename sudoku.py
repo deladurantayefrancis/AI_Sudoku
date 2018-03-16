@@ -55,165 +55,127 @@ def test():
 ############################ Hill Climbing ###################################################
 
 def hill_climbing(values):
-    hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
-    hc_squares = [s for s in squares if len(values[s]) > 1]  # empty squares
-
     global attempt_cnt
     attempt_cnt = 0
-
-    ## For each square in a unit of hc_units, assign a digit not already in this unit.
-    for u in hc_units:
-        ds = set(digits) - set(values[s] for s in u)
-        for s in u:
-            if len(values[s]) > 1:
-                values[s] = ds.pop()
-                attempt_cnt += 1
 
     progress = True
-    unit_indexes = range(9)
 
-    while progress:
-        initial_best = len(hc_conflicts(values))
-        rand.shuffle(unit_indexes)
-        progress = False
-        for i in unit_indexes:
-            u = hc_units[i]
-            best = initial_best
-            prospect = set()
+    square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
+    empty_squares = [s for s in squares if values[s] in '0.']
 
-            for s in u:
-                for s2 in u:
-                    if s != s2 and s in hc_squares and s2 in hc_squares:
-                        new_values = copy.deepcopy(values)
-                        new_values[s], new_values[s2] = new_values[s2], new_values[s]
-                        conflicts = hc_conflicts(new_values)
-
-                        if len(conflicts) < best:
-                            prospect = set()
-                            prospect.add((s, s2))
-                            best = len(conflicts)
-                            # print "best: " + str(best)
-                        elif len(conflicts) == best:
-                            prospect.add((s, s2))
-
-            # ensuite swapper des digit qui reduise le plus de conflit
-            if len(prospect) > 0:
-                s, s2 = prospect.pop()
-                values[s], values[s2] = values[s2], values[s]
-                attempt_cnt += 1
-
-            if best == 0:
-                # print "win!!!!!!!!!!!!!!!"
-                return values  ## Solved!
-            elif best != initial_best:
-                progress = True
-
-    # print "----------- fail: " + str(best)
-    return False
-
-
-def hc_conflicts(values):
-    """Return a list of squares causing conflict."""
-    return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
-
-############################### Simulated Annealing ###################################################
-
-def simulated_annealing(values): #right now its a copy of hill climbing
-    
-    heat = .01
-    hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
-    hc_squares = [s for s in squares if len(values[s]) > 1]  # empty squares
-
-    global attempt_cnt
-    attempt_cnt = 0
-
-    ## For each square in a unit of hc_units, assign a digit not already in this unit.
-    for u in hc_units:
+    ## For each empty square in a square unit, assign a digit not already in this unit.
+    for u in square_units:
         ds = set(digits) - set(values[s] for s in u)
         for s in u:
-            if len(values[s]) > 1:
+            if values[s] in '0.':
                 values[s] = ds.pop()
                 attempt_cnt += 1
 
-    unit_indexes = range(9)
+    while progress:
+        conflicts = get_conflicts(values)
+        initial_best = len(conflicts)
 
-    while heat >=  0.001:
-        initial_best = len(sa_conflicts(values))
-        rand.shuffle(unit_indexes)
-        for i in unit_indexes:
-            u = hc_units[i]
+        rand.shuffle(square_units)
+        progress = False
+
+        for u in square_units:
             best = initial_best
             prospect = set()
 
-            # ensuite swapper des digit qui reduise le plus de conflit
-            #choose a random pair to swap
-            p = u[rand.randint(0, 8)]
-            q = u[rand.randint(0, 8)]
-            while q == p :
-                q = u[rand.randint(0, 8)]
+            for s1 in u:
+                for s2 in u:
+                    if s1 != s2 and s1 in empty_squares and s2 in empty_squares:
+                        new_values = copy.deepcopy(values)
+                        new_values[s], new_values[s2] = new_values[s2], new_values[s]
+                        attempt_cnt += 1
 
+                        new_conflicts = get_conflicts(new_values)
+                        if len(new_conflicts) < best:
+                            prospect = set()
+                            prospect.add((s, s2))
+                            best = len(new_conflicts)
+                            # print "best: " + str(best)
+                        elif len(new_conflicts) == best:
+                            prospect.add((s, s2))
 
-            h_values = copy.deepcopy(values)
-            h_values[p], h_values[q] = h_values[q], h_values[p]
-            
-            d = best - len(sa_conflicts(h_values))
-
-            # f = exp(d/heat)
-            # print "\nf: " + str(f)
-
-            if d > 0 or exp(d/heat) > rand.uniform(0, 1):
-                values[p], values[q] = values[q], values[p]
-                attempt_cnt += 1
-                best -= d
-
-            """
-            else:
-                for s in u:
-                    for s2 in u:
-                        if s != s2 and s in hc_squares and s2 in hc_squares:
-                            new_values = copy.deepcopy(values)
-                            new_values[s], new_values[s2] = new_values[s2], new_values[s]
-                            conflicts = sa_conflicts(new_values)
-
-                            if len(conflicts) < best:
-                                prospect = set()
-                                prospect.add((s, s2))
-                                best = len(conflicts)
-                            elif len(conflicts) == best:
-                                prospect.add((s, s2))
-
-                if len(prospect) > 0:
-                    s, s2 = prospect.pop()
-                    values[s], values[s2] = values[s2], values[s]
-                    attempt_cnt += 1
-            """
-
-            # print "best: " + str(best)
+            # if there are some prospects, swap the squares in a random prospect
+            if len(prospect) > 0:
+                s1, s2 = prospect.pop()
+                values[s1], values[s2] = values[s2], values[s1]
 
             if best == 0:
                 print "win!!!!!!!!!!!!!!!"
                 return values  ## Solved!
-            else:
-                heat *= 0.9999
+            elif best != initial_best:
+                progress = True
 
     print "----------- fail: " + str(best)
     return False
 
-def sa_conflicts(values):
+############################### Simulated Annealing ###################################################
+
+def simulated_annealing(values):
+    global attempt_cnt
+    attempt_cnt = 0
+
+    square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
+    empty_squares = [s for s in squares if values[s] in '0.']
+
+    T = 0.1  # temperature
+
+    ## For each empty square in a square unit, assign a digit not already in this unit.
+    for u in square_units:
+        ds = set(digits) - set(values[s] for s in u)
+        for s in u:
+            if values[s] in '0.':
+                values[s] = ds.pop()
+                attempt_cnt += 1
+
+    while T > 0.001:
+        conflicts = get_conflicts(values)
+        best = len(conflicts)
+
+        while True:
+            u = random.choice(square_units)
+            swap_prospects = set.intersection(set(u), set(empty_squares))
+            if len(swap_prospects) >= 2:
+                break;
+
+        # choose two squares to swap in selected square unite
+        to_swap = random.sample(swap_prospects, 2)
+        s1, s2 = to_swap[0], to_swap[1]
+
+        # swap the selected squares
+        new_values = copy.deepcopy(values)
+        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
+        attempt_cnt += 1
+
+        new_conflicts = get_conflicts(new_values)
+        dE = best - len(new_conflicts)
+
+        if dE > 0 or exp(dE/T) > rand.uniform(0, 1):
+            values[s1], values[s2] = values[s2], values[s1]
+            best -= dE
+
+        # print "best: " + str(best)
+        # print "T: " + str(T)
+
+        if best == 0:
+            print "win!!!!!!!!!!!!!!!"
+            return values  ## Solved!
+        else:
+            T *= 0.9999
+
+    print "----------- fail: " + str(best)
+    return False
+
+
+def get_conflicts(values):
     """Return a list of squares causing conflict."""
     return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
 
 
 ################ Parse a Grid ################
-
-def hc_parse_grid(grid):
-    values = dict((s, digits) for s in squares)
-    for s,d in grid_values(grid).items():
-        if d not in digits:
-            values[s] = digits
-        else:
-            values[s] = d
-    return values
 
 def parse_grid(grid):
     """Convert grid to a dict of possible values, {square: digits}, or
@@ -287,9 +249,9 @@ def solve(grid, method):
     if method == 'vanilla' :
         return search(parse_grid(grid))
     elif method == 'hill_climbing' :
-        return hill_climbing(hc_parse_grid(grid))
+        return hill_climbing(grid_values(grid))
     elif method == 'recuit' :
-        return simulated_annealing(hc_parse_grid(grid))
+        return simulated_annealing(grid_values(grid))
 
 def search(values):
     "Using depth-first search and propagation, try all possible values."
