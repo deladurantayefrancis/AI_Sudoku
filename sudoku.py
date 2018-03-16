@@ -73,11 +73,11 @@ def hill_climbing(values):
     unit_indexes = range(9)
 
     while progress:
+        initial_best = len(hc_conflicts(values))
         rand.shuffle(unit_indexes)
         progress = False
         for i in unit_indexes:
             u = hc_units[i]
-            initial_best = len(hc_conflicts(values))
             best = initial_best
             prospect = set()
 
@@ -120,7 +120,7 @@ def hc_conflicts(values):
 
 def simulated_annealing(values): #right now its a copy of hill climbing
     
-    heat = 1/10.0
+    heat = .01
     hc_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]  # square units only
     hc_squares = [s for s in squares if len(values[s]) > 1]  # empty squares
 
@@ -135,21 +135,17 @@ def simulated_annealing(values): #right now its a copy of hill climbing
                 values[s] = ds.pop()
                 attempt_cnt += 1
 
-    progress = True
     unit_indexes = range(9)
 
-    while heat >=  0.01:
+    while heat >=  0.001:
+        initial_best = len(sa_conflicts(values))
         rand.shuffle(unit_indexes)
-        progress = False
         for i in unit_indexes:
             u = hc_units[i]
-            initial_best = len(sa_conflicts(values))
             best = initial_best
             prospect = set()
 
-
             # ensuite swapper des digit qui reduise le plus de conflit
-            heat *= 0.999
             #choose a random pair to swap
             p = u[rand.randint(0, 8)]
             q = u[rand.randint(0, 8)]
@@ -169,7 +165,8 @@ def simulated_annealing(values): #right now its a copy of hill climbing
                 values[p], values[q] = values[q], values[p]
                 attempt_cnt += 1
                 best -= d
-                print "best: " + str(best)
+
+            """
             else:
                 for s in u:
                     for s2 in u:
@@ -182,20 +179,22 @@ def simulated_annealing(values): #right now its a copy of hill climbing
                                 prospect = set()
                                 prospect.add((s, s2))
                                 best = len(conflicts)
-                                print "best: " + str(best)
                             elif len(conflicts) == best:
                                 prospect.add((s, s2))
+
                 if len(prospect) > 0:
                     s, s2 = prospect.pop()
                     values[s], values[s2] = values[s2], values[s]
                     attempt_cnt += 1
+            """
 
-            # print "best: " + str(best) # + "      temp: " + str(heat)
+            # print "best: " + str(best)
+
             if best == 0:
                 print "win!!!!!!!!!!!!!!!"
                 return values  ## Solved!
-            elif best != initial_best:
-                progress = True
+            else:
+                heat *= 0.9999
 
     print "----------- fail: " + str(best)
     return False
@@ -378,7 +377,7 @@ hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6.......
 if __name__ == '__main__':
     test()
     assert len(sys.argv) != 1
-    # solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
+    solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
     # solve_all(from_file("top95.txt"), sys.argv[1], "hard", None)
     # solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
     solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
