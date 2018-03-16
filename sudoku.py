@@ -131,7 +131,7 @@ def simulated_annealing(values):
                 values[s] = ds.pop()
                 attempt_cnt += 1
 
-    while T > 0.001:
+    while T > 0.0001:
         conflicts = get_conflicts(values)
         best = len(conflicts)
 
@@ -141,7 +141,7 @@ def simulated_annealing(values):
             if len(swap_prospects) >= 2:
                 break;
 
-        # choose two squares to swap in selected square unite
+        # choose two squares to swap in selected square unit
         to_swap = random.sample(swap_prospects, 2)
         s1, s2 = to_swap[0], to_swap[1]
 
@@ -164,7 +164,7 @@ def simulated_annealing(values):
             print "win!!!!!!!!!!!!!!!"
             return values  ## Solved!
         else:
-            T *= 0.9999
+            T *= 0.999
 
     print "----------- fail: " + str(best)
     return False
