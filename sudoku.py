@@ -34,6 +34,10 @@ units = dict((s, [u for u in unitlist if s in u])
 peers = dict((s, set(sum(units[s],[]))-set([s]))
              for s in squares)
 
+col_units = unitlist[:9]
+row_units = unitlist[9:18]
+sqr_units = unitlist[18:]
+
 ################ Unit Tests ################
 
 def test():
@@ -178,80 +182,88 @@ def get_conflicts(values):
 ############### Heuristique 1 #####################
 
 
-def heur_var_1(values):
+def heur_var_1(initial_values):
     global attempt_cnt
     attempt_cnt = 0
 
-    square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
-    empty_squares = set([s for s in squares if values[s] in '0.'])
+    empty_squares = set([s for s in squares if initial_values[s] in '0.'])
 
-    T = 3.0  # temperature
+    ml = len(empty_squares) * len(empty_squares)  # length of  Markov chain
 
-    ## For each empty square in a square unit, assign a digit not already in this unit.
-    for u in square_units:
-        ds = set(digits) - set(values[s] for s in u)
-        for s in u:
-            if values[s] in '0.':
-                values[s] = ds.pop()
-                attempt_cnt += 1
+    while True:
+        values = copy.deepcopy(initial_values)
 
-    while T > 0.001:
-        conflicts = set(get_conflicts1(values))
-        conflicts = set.intersection(conflicts, empty_squares)
-        best = get_conflicts_score1(conflicts)
+        ## For each empty square in a square unit, assign a digit not already in this unit.
+        for u in sqr_units:
+            ds = set(digits) - set(values[s] for s in u)
+            for s in u:
+                if values[s] in '0.':
+                    values[s] = random.sample(ds, 1)[0]
+                    ds.remove(values[s])
+                    # attempt_cnt += 1
 
-        while True:
-            u = random.choice(square_units)
-            swap_prospects = set.intersection(set(u), empty_squares)
-            if len(swap_prospects) >= 2:
-                break;
+        rows_cost = [9 - len(set(values[s] for s in u)) for u in row_units]
+        cols_cost = [9 - len(set(values[s] for s in u)) for u in col_units]
+        current_cost = sum(rows_cost) + sum(cols_cost)
 
-        # choose two squares to swap in selected square unit
-        to_swap = random.sample(swap_prospects, 2)
-        s1, s2 = to_swap[0], to_swap[1]
+        T = 2.0  # temperature
 
-        # swap the selected squares
-        new_values = copy.deepcopy(values)
-        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
-        attempt_cnt += 1
+        while T > 0.2:
+            # find a square unit in which there's enough non-fixed squares for a swap
+            swap_prospects = set()
+            while len(swap_prospects) < 2:
+                u = random.choice(sqr_units)
+                swap_prospects = set.intersection(set(u), empty_squares)
 
-        new_conflicts = set(get_conflicts1(new_values))
-        new_conflicts = set.intersection(new_conflicts, empty_squares)
-        dE = best - get_conflicts_score1(new_conflicts)
-
-        if dE > 0 or exp(dE / T) > rand.uniform(0, 1):
+            # swap two squares in selected unit
+            s1, s2 = random.sample(swap_prospects, 2)
             values[s1], values[s2] = values[s2], values[s1]
-            best -= dE
+            attempt_cnt += 1
 
-        # print "best: " + str(best)
-        # print "T: " + str(T)
+            # keep a copy of cost arrays in case we do not swap
+            rows_cost_cpy = copy.deepcopy(rows_cost)
+            cols_cost_cpy = copy.deepcopy(cols_cost)
 
-        if best == 0:
-            print "win!!!!!!!!!!!!!!!"
-            return values  ## Solved!
-        else:
-            T *= 0.999
+            # get the cost of the new position
+            new_cost = compute_cost_h1(values, rows_cost, cols_cost, s1, s2)
 
-    print "----------- fail: " + str(best)
+            # check if we accept the swap or reverse it
+            dE = current_cost - new_cost
+            if dE > 0 or exp(dE / T) > rand.uniform(0, 1):
+                current_cost = new_cost
+            else:
+                values[s1], values[s2] = values[s2], values[s1]
+                rows_cost = rows_cost_cpy
+                cols_cost = cols_cost_cpy
+
+            if current_cost != 0:
+                T *= 0.9999
+            else:
+                print "win!!!!!!!!!!!!!!!"
+                return values  ## Solved!
+            
+        # print "reheat --- best: " + str(current_cost) + " attempts: " + str(attempt_cnt)
+
+    print "----------- fail: " + str(current_score)
     return False
 
 
-def get_conflicts1(values):
+def get_conflicts_h1(values):
     """Return a list of squares causing conflict."""
-    return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
+    return set([s for s in squares if values[s] in [values[s2] for s2 in peers[s]]])
 
-def get_conflicts_score1(conflicts):
-    col_scores = [0 for _ in range(9)]
-    line_scores = [0 for _ in range(9)]
 
-    conflicts_cpy = conflicts.copy()
+def compute_cost_h1(values, rows_cost, cols_cost, s1, s2):
+    affected_rows = set([ord(s1[0]), ord(s2[0])])
+    affected_cols = set([ord(s1[1]), ord(s2[1])])
 
-    while len(conflicts_cpy) != 0:
-        current = conflicts_cpy.pop()
-        col_scores[ord(current[0]) - 65] += 1
-        line_scores[ord(current[1]) - 49] += 1
+    for r in affected_rows:
+        rows_cost[r - 65] = 9 - len(set([values[s] for s in row_units[r - 65]]))
 
-    return sum(col_scores) + sum(line_scores)
+    for c in affected_cols:
+        cols_cost[c - 49] = 9 - len(set([values[s] for s in col_units[c - 49]]))
+
+    return sum(rows_cost) + sum(cols_cost)
 
 
 ############### Heuristique 2 ####################
@@ -521,7 +533,7 @@ hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6.......
 if __name__ == '__main__':
     test()
     assert len(sys.argv) != 1
-    # solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
+    solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
     # solve_all(from_file("top95.txt"), sys.argv[1], "hard", None)
     # solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
     solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
