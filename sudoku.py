@@ -182,10 +182,10 @@ def heur_var_1(values):
     global attempt_cnt
     attempt_cnt = 0
 
-    square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
-    empty_squares = [s for s in squares if values[s] in '0.']
+    square_units = [cross(rs, cs) for rs in ('ABC','DEF','GHI') for cs in ('123','456','789')]
+    empty_squares = set([s for s in squares if values[s] in '0.'])
 
-    T = 0.1  # temperature
+    T = 3.0  # temperature
 
     ## For each empty square in a square unit, assign a digit not already in this unit.
     for u in square_units:
@@ -195,13 +195,14 @@ def heur_var_1(values):
                 values[s] = ds.pop()
                 attempt_cnt += 1
 
-    while T > 0.0001:
-        conflicts = get_conflicts1(values)
-        best = len(conflicts)
+    while T > 0.001:
+        conflicts = set(get_conflicts1(values))
+        conflicts = set.intersection(conflicts, empty_squares)
+        best = get_conflicts_score1(conflicts)
 
         while True:
             u = random.choice(square_units)
-            swap_prospects = set.intersection(set(u), set(empty_squares))
+            swap_prospects = set.intersection(set(u), empty_squares)
             if len(swap_prospects) >= 2:
                 break;
 
@@ -214,8 +215,9 @@ def heur_var_1(values):
         new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
         attempt_cnt += 1
 
-        new_conflicts = get_conflicts1(new_values)
-        dE = best - len(new_conflicts)
+        new_conflicts = set(get_conflicts1(new_values))
+        new_conflicts = set.intersection(new_conflicts, empty_squares)
+        dE = best - get_conflicts_score1(new_conflicts)
 
         if dE > 0 or exp(dE / T) > rand.uniform(0, 1):
             values[s1], values[s2] = values[s2], values[s1]
@@ -237,6 +239,19 @@ def heur_var_1(values):
 def get_conflicts1(values):
     """Return a list of squares causing conflict."""
     return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
+
+def get_conflicts_score1(conflicts):
+    col_scores = [0 for _ in range(9)]
+    line_scores = [0 for _ in range(9)]
+
+    conflicts_cpy = conflicts.copy()
+
+    while len(conflicts_cpy) != 0:
+        current = conflicts_cpy.pop()
+        col_scores[ord(current[0]) - 65] += 1
+        line_scores[ord(current[1]) - 49] += 1
+
+    return sum(col_scores) + sum(line_scores)
 
 
 ############### Heuristique 2 ####################
