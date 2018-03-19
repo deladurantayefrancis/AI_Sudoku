@@ -242,14 +242,18 @@ def get_conflicts1(values):
 ############### Heuristique 2 ####################
 
 
+# c est des copie de recuit en attendant
+
 def heur_var_2(values):
     global attempt_cnt
     attempt_cnt = 0
 
+    best = 0
+
+    progress = True
+
     square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
     empty_squares = [s for s in squares if values[s] in '0.']
-
-    T = 0.1  # temperature
 
     ## For each empty square in a square unit, assign a digit not already in this unit.
     for u in square_units:
@@ -259,17 +263,53 @@ def heur_var_2(values):
                 values[s] = ds.pop()
                 attempt_cnt += 1
 
-    while T > 0.0001:
-        conflicts = get_conflicts2(values)
-        best = len(conflicts)
+    T = 3.0
 
+    while progress:
+        conflicts = get_conflicts2(values)
+        initial_best = len(conflicts)
+        best = initial_best
+
+        rand.shuffle(square_units)
+        progress = False
+
+        for u in square_units:
+            prospect = set()
+
+            for s1 in u:
+                for s2 in u:
+                    if s1 != s2 and s1 in empty_squares and s2 in empty_squares:
+                        new_values = copy.deepcopy(values)
+                        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
+                        attempt_cnt += 1
+
+                        new_conflicts = get_conflicts2(new_values)
+                        if len(new_conflicts) < best:
+                            prospect = set()
+                            prospect.add((s1, s2))
+                            best = len(new_conflicts)
+                            # print "best: " + str(best)
+                        elif len(new_conflicts) == best:
+                            prospect.add((s1, s2))
+
+            # if there are some prospects, swap the squares in a random prospect
+            if len(prospect) > 0:
+                s1, s2 = prospect.pop()
+                values[s1], values[s2] = values[s2], values[s1]
+
+            if best == 0:
+                print "win!!!!!!!!!!!!!!!"
+                return values  ## Solved!
+            elif best != initial_best:
+                progress = True
+
+        # choose two squares to swap in selected square unit
         while True:
             u = random.choice(square_units)
             swap_prospects = set.intersection(set(u), set(empty_squares))
             if len(swap_prospects) >= 2:
-                break;
+                break
 
-        # choose two squares to swap in selected square unit
         to_swap = random.sample(swap_prospects, 2)
         s1, s2 = to_swap[0], to_swap[1]
 
@@ -278,21 +318,16 @@ def heur_var_2(values):
         new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
         attempt_cnt += 1
 
-        new_conflicts = get_conflicts2(new_values)
-        dE = best - len(new_conflicts)
+        if not progress:
+            new_conflicts = get_conflicts1(new_values)
+            dE = best - len(new_conflicts)
 
-        if dE > 0 or exp(dE / T) > rand.uniform(0, 1):
-            values[s1], values[s2] = values[s2], values[s1]
-            best -= dE
-
-        # print "best: " + str(best)
-        # print "T: " + str(T)
-
-        if best == 0:
-            print "win!!!!!!!!!!!!!!!"
-            return values  ## Solved!
-        else:
-            T *= 0.999
+            if True or dE > 0 or exp(dE / T) > rand.uniform(0, 1):
+                progress = True
+                values[s1], values[s2] = values[s2], values[s1]
+                best -= dE
+                print "swapped"
+        T *= 0.9999999999
 
     print "----------- fail: " + str(best)
     return False
@@ -471,7 +506,7 @@ hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6.......
 if __name__ == '__main__':
     test()
     assert len(sys.argv) != 1
-    solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
+    # solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
     # solve_all(from_file("top95.txt"), sys.argv[1], "hard", None)
     # solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
     solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
