@@ -72,8 +72,8 @@ def hill_climbing(values):
         ds = set(digits) - set(values[s] for s in u)
         for s in u:
             if values[s] in '0.':
-                values[s] = ds.pop()
-                attempt_cnt += 1
+                values[s] = random.sample(ds, 1)[0]
+                ds.remove(values[s])
 
     while progress:
         conflicts = get_conflicts(values)
@@ -118,7 +118,185 @@ def hill_climbing(values):
 
 ############################### Simulated Annealing ###################################################
 
+# Simulated annealing utilisant hill_climbing
 def simulated_annealing(values):
+    global attempt_cnt
+    attempt_cnt = 0
+
+    best = 0
+
+    progress = True
+
+    square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
+    empty_squares = [s for s in squares if values[s] in '0.']
+
+    ## For each empty square in a square unit, assign a digit not already in this unit.
+    for u in square_units:
+        ds = set(digits) - set(values[s] for s in u)
+        for s in u:
+            if values[s] in '0.':
+                values[s] = random.sample(ds, 1)[0]
+                ds.remove(values[s])
+
+    T = 2.0
+
+    while progress:
+        conflicts = get_conflicts(values)
+        initial_best = len(conflicts)
+        best = initial_best
+
+        rand.shuffle(square_units)
+        progress = False
+
+        for u in square_units:
+            prospect = set()
+
+            for s1 in u:
+                for s2 in u:
+                    if s1 != s2 and s1 in empty_squares and s2 in empty_squares:
+                        new_values = copy.deepcopy(values)
+                        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
+                        attempt_cnt += 1
+
+                        new_conflicts = get_conflicts(new_values)
+                        if len(new_conflicts) < best:
+                            prospect = set()
+                            prospect.add((s1, s2))
+                            best = len(new_conflicts)
+                            # print "best: " + str(best)
+                        elif len(new_conflicts) == best:
+                            prospect.add((s1, s2))
+
+            # if there are some prospects, swap the squares in a random prospect
+            if len(prospect) > 0:
+                s1, s2 = prospect.pop()
+                values[s1], values[s2] = values[s2], values[s1]
+
+            if best == 0:
+                print "win!!!!!!!!!!!!!!!"
+                return values  ## Solved!
+            elif best != initial_best:
+                progress = True
+
+        # find a square unit in which there's enough non-fixed squares for a swap
+        swap_prospects = set()
+        while len(swap_prospects) < 2:
+            u = random.choice(sqr_units)
+            swap_prospects = set.intersection(set(u), empty_squares)
+
+        to_swap = random.sample(swap_prospects, 2)
+        s1, s2 = to_swap[0], to_swap[1]
+
+        # swap the selected squares
+        new_values = copy.deepcopy(values)
+        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
+
+        print "best: " + str(best) + "   T: " + str(T)
+
+        if not progress:
+            new_conflicts = get_conflicts(new_values)
+            dE = best - len(new_conflicts)
+
+            if True or dE > 0 or exp(dE / T) > rand.uniform(0, 1):
+                progress = True
+                values[s1], values[s2] = values[s2], values[s1]
+                best -= dE
+
+        T *= 0.99
+
+    print "----------- fail: " + str(best)
+    return False
+
+
+def get_conflicts(values):
+    """Return a list of squares causing conflict."""
+    return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
+
+
+############### Heuristique 1 #####################
+
+# Simulated annealing inspire de Lewis, heuristique basee sur le nombre de chiffres manquants dans les unites
+def sa_heur1(initial_values):
+    global attempt_cnt
+    attempt_cnt = 0
+
+    empty_squares = set([s for s in squares if initial_values[s] in '0.'])
+
+    # will loop until the solution is found
+    while True:
+        # For each empty square in a square unit, assign a digit not already in this unit.
+        values = copy.deepcopy(initial_values)
+        for u in sqr_units:
+            ds = set(digits) - set(values[s] for s in u)
+            for s in u:
+                if values[s] in '0.':
+                    values[s] = random.sample(ds, 1)[0]
+                    ds.remove(values[s])
+
+        # get the count of missing numbers in each col/row and sum them to get the cost
+        cols_cost = [9 - len(set(values[s] for s in u)) for u in col_units]
+        rows_cost = [9 - len(set(values[s] for s in u)) for u in row_units]
+        current_cost = sum(cols_cost) + sum(rows_cost)
+
+        T = 3.0  # temperature
+
+        while T > 0.1:
+            # find a square unit in which there's enough non-fixed squares for a swap
+            swap_prospects = set()
+            while len(swap_prospects) < 2:
+                u = random.choice(sqr_units)
+                swap_prospects = set.intersection(set(u), empty_squares)
+
+            # swap two squares in selected unit
+            s1, s2 = random.sample(swap_prospects, 2)
+            values[s1], values[s2] = values[s2], values[s1]
+            attempt_cnt += 1
+
+            # keep a copy of cost arrays in case we do not swap
+            rows_cost_cpy = copy.deepcopy(rows_cost)
+            cols_cost_cpy = copy.deepcopy(cols_cost)
+
+            # get the cost of the new position
+            new_cost = compute_cost_h1(values, rows_cost, cols_cost, s1, s2)
+
+            # check if we accept the swap or reverse it
+            dE = current_cost - new_cost
+            if dE > 0 or exp(dE / T) > rand.uniform(0, 1):
+                current_cost = new_cost
+            else:
+                values[s1], values[s2] = values[s2], values[s1]
+                rows_cost = rows_cost_cpy
+                cols_cost = cols_cost_cpy
+
+            # update temperature if solution not found, otherwise return solution
+            if current_cost != 0:
+                T *= 0.9999
+            else:
+                print "win!!!!!!!!!!!!!!!"
+                return values
+
+            # print "cost: " + str(current_cost)
+
+        print "reheat   ---   attempts: " + str(attempt_cnt) + "   cost: " + str(current_cost)
+
+
+def compute_cost_h1(values, rows_cost, cols_cost, s1, s2):
+    affected_rows = set([ord(s1[0]), ord(s2[0])])
+    affected_cols = set([ord(s1[1]), ord(s2[1])])
+
+    for r in affected_rows:
+        rows_cost[r - 65] = 9 - len(set([values[s] for s in row_units[r - 65]]))
+
+    for c in affected_cols:
+        cols_cost[c - 49] = 9 - len(set([values[s] for s in col_units[c - 49]]))
+
+    return sum(rows_cost) + sum(cols_cost)
+
+
+############### Heuristique 2 ####################
+
+# Simulated annealing avec heuristique basee sur le nombre de cases en conflit
+def sa_heur2(values):
     global attempt_cnt
     attempt_cnt = 0
 
@@ -132,18 +310,18 @@ def simulated_annealing(values):
         ds = set(digits) - set(values[s] for s in u)
         for s in u:
             if values[s] in '0.':
-                values[s] = ds.pop()
-                attempt_cnt += 1
+                values[s] = random.sample(ds, 1)[0]
+                ds.remove(values[s])
 
     while T > 0.0001:
         conflicts = get_conflicts(values)
         best = len(conflicts)
 
-        while True:
-            u = random.choice(square_units)
-            swap_prospects = set.intersection(set(u), set(empty_squares))
-            if len(swap_prospects) >= 2:
-                break;
+        # find a square unit in which there's enough non-fixed squares for a swap
+        swap_prospects = set()
+        while len(swap_prospects) < 2:
+            u = random.choice(sqr_units)
+            swap_prospects = set.intersection(set(u), empty_squares)
 
         # choose two squares to swap in selected square unit
         to_swap = random.sample(swap_prospects, 2)
@@ -172,197 +350,6 @@ def simulated_annealing(values):
 
     print "----------- fail: " + str(best)
     return False
-
-
-def get_conflicts(values):
-    """Return a list of squares causing conflict."""
-    return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
-
-
-############### Heuristique 1 #####################
-
-
-def heur_var_1(initial_values):
-    global attempt_cnt
-    attempt_cnt = 0
-
-    empty_squares = set([s for s in squares if initial_values[s] in '0.'])
-
-    ml = len(empty_squares) * len(empty_squares)  # length of  Markov chain
-
-    while True:
-        values = copy.deepcopy(initial_values)
-
-        ## For each empty square in a square unit, assign a digit not already in this unit.
-        for u in sqr_units:
-            ds = set(digits) - set(values[s] for s in u)
-            for s in u:
-                if values[s] in '0.':
-                    values[s] = random.sample(ds, 1)[0]
-                    ds.remove(values[s])
-                    # attempt_cnt += 1
-
-        rows_cost = [9 - len(set(values[s] for s in u)) for u in row_units]
-        cols_cost = [9 - len(set(values[s] for s in u)) for u in col_units]
-        current_cost = sum(rows_cost) + sum(cols_cost)
-
-        T = 2.0  # temperature
-
-        while T > 0.2:
-            # find a square unit in which there's enough non-fixed squares for a swap
-            swap_prospects = set()
-            while len(swap_prospects) < 2:
-                u = random.choice(sqr_units)
-                swap_prospects = set.intersection(set(u), empty_squares)
-
-            # swap two squares in selected unit
-            s1, s2 = random.sample(swap_prospects, 2)
-            values[s1], values[s2] = values[s2], values[s1]
-            attempt_cnt += 1
-
-            # keep a copy of cost arrays in case we do not swap
-            rows_cost_cpy = copy.deepcopy(rows_cost)
-            cols_cost_cpy = copy.deepcopy(cols_cost)
-
-            # get the cost of the new position
-            new_cost = compute_cost_h1(values, rows_cost, cols_cost, s1, s2)
-
-            # check if we accept the swap or reverse it
-            dE = current_cost - new_cost
-            if dE > 0 or exp(dE / T) > rand.uniform(0, 1):
-                current_cost = new_cost
-            else:
-                values[s1], values[s2] = values[s2], values[s1]
-                rows_cost = rows_cost_cpy
-                cols_cost = cols_cost_cpy
-
-            if current_cost != 0:
-                T *= 0.9999
-            else:
-                print "win!!!!!!!!!!!!!!!"
-                return values  ## Solved!
-            
-        # print "reheat --- best: " + str(current_cost) + " attempts: " + str(attempt_cnt)
-
-    print "----------- fail: " + str(current_score)
-    return False
-
-
-def get_conflicts_h1(values):
-    """Return a list of squares causing conflict."""
-    return set([s for s in squares if values[s] in [values[s2] for s2 in peers[s]]])
-
-
-def compute_cost_h1(values, rows_cost, cols_cost, s1, s2):
-    affected_rows = set([ord(s1[0]), ord(s2[0])])
-    affected_cols = set([ord(s1[1]), ord(s2[1])])
-
-    for r in affected_rows:
-        rows_cost[r - 65] = 9 - len(set([values[s] for s in row_units[r - 65]]))
-
-    for c in affected_cols:
-        cols_cost[c - 49] = 9 - len(set([values[s] for s in col_units[c - 49]]))
-
-    return sum(rows_cost) + sum(cols_cost)
-
-
-############### Heuristique 2 ####################
-
-
-# c est des copie de recuit en attendant
-
-def heur_var_2(values):
-    global attempt_cnt
-    attempt_cnt = 0
-
-    best = 0
-
-    progress = True
-
-    square_units = [cross(rs, cs) for rs in ('ABC', 'DEF', 'GHI') for cs in ('123', '456', '789')]
-    empty_squares = [s for s in squares if values[s] in '0.']
-
-    ## For each empty square in a square unit, assign a digit not already in this unit.
-    for u in square_units:
-        ds = set(digits) - set(values[s] for s in u)
-        for s in u:
-            if values[s] in '0.':
-                values[s] = ds.pop()
-                attempt_cnt += 1
-
-    T = 3.0
-
-    while progress:
-        conflicts = get_conflicts2(values)
-        initial_best = len(conflicts)
-        best = initial_best
-
-        rand.shuffle(square_units)
-        progress = False
-
-        for u in square_units:
-            prospect = set()
-
-            for s1 in u:
-                for s2 in u:
-                    if s1 != s2 and s1 in empty_squares and s2 in empty_squares:
-                        new_values = copy.deepcopy(values)
-                        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
-                        attempt_cnt += 1
-
-                        new_conflicts = get_conflicts2(new_values)
-                        if len(new_conflicts) < best:
-                            prospect = set()
-                            prospect.add((s1, s2))
-                            best = len(new_conflicts)
-                            # print "best: " + str(best)
-                        elif len(new_conflicts) == best:
-                            prospect.add((s1, s2))
-
-            # if there are some prospects, swap the squares in a random prospect
-            if len(prospect) > 0:
-                s1, s2 = prospect.pop()
-                values[s1], values[s2] = values[s2], values[s1]
-
-            if best == 0:
-                print "win!!!!!!!!!!!!!!!"
-                return values  ## Solved!
-            elif best != initial_best:
-                progress = True
-
-        # choose two squares to swap in selected square unit
-        while True:
-            u = random.choice(square_units)
-            swap_prospects = set.intersection(set(u), set(empty_squares))
-            if len(swap_prospects) >= 2:
-                break
-
-        to_swap = random.sample(swap_prospects, 2)
-        s1, s2 = to_swap[0], to_swap[1]
-
-        # swap the selected squares
-        new_values = copy.deepcopy(values)
-        new_values[s1], new_values[s2] = new_values[s2], new_values[s1]
-        attempt_cnt += 1
-
-        if not progress:
-            new_conflicts = get_conflicts1(new_values)
-            dE = best - len(new_conflicts)
-
-            if True or dE > 0 or exp(dE / T) > rand.uniform(0, 1):
-                progress = True
-                values[s1], values[s2] = values[s2], values[s1]
-                best -= dE
-                print "swapped"
-        T *= 0.9999999999
-
-    print "----------- fail: " + str(best)
-    return False
-
-
-def get_conflicts2(values):
-    """Return a list of squares causing conflict."""
-    return [s for s in squares if values[s] in [values[s2] for s2 in peers[s]]]
 
 
 ################ Parse a Grid ################
@@ -436,16 +423,18 @@ def display(values):
 ################ Search ################
 
 def solve(grid, method): 
-    if method == 'vanilla' :
+    if method == 'norvig':
         return search(parse_grid(grid))
-    elif method == 'hill_climbing' :
+    elif method == 'hc':
         return hill_climbing(grid_values(grid))
-    elif method == 'recuit' :
+    elif method == 'sa':
         return simulated_annealing(grid_values(grid))
-    elif method == 'var1' :
-        return heur_var_1(grid_values(grid))
-    elif method == 'var2' :
-        return heur_var_2(grid_values(grid))
+    elif method == 'sa_heur1':
+        return sa_heur1(grid_values(grid))
+    elif method == 'sa_heur2':
+        return sa_heur2(grid_values(grid))
+    else:
+        print "\nWRONG COMMAND LINE ARGUMENT\n"
 
 def search(values):
     "Using depth-first search and propagation, try all possible values."
@@ -533,12 +522,12 @@ hard1  = '.....6....59.....82....8....45........3........6..3.54...325..6.......
 if __name__ == '__main__':
     test()
     assert len(sys.argv) != 1
-    solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
+    # solve_all(from_file("easy50.txt", '========'), sys.argv[1], "easy", None)
     # solve_all(from_file("top95.txt"), sys.argv[1], "hard", None)
     # solve_all(from_file("1000sudoku.txt"), sys.argv[1], "hard", None)
-    solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
+    # solve_all(from_file("hardest.txt"), sys.argv[1], "hardest", None)
     # solve_all([random_puzzle() for _ in range(99)], "random", 100.0)
-
+    solve_all(from_file("100sudoku.txt"), sys.argv[1], "--- 100 sudoku ---", None)
 
 
 
